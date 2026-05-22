@@ -70,6 +70,8 @@ const apiProviders = {
           Page(page: 1, perPage: 12) {
             media(search: $search, type: MANGA, sort: SEARCH_MATCH) {
               id
+              chapters
+              volumes
               title { romaji english native }
               description(asHtml: false)
               coverImage { large extraLarge }
@@ -269,6 +271,7 @@ function createMangaCard(manga) {
   author.textContent = manga.author || providerLabel(manga.source?.provider);
   (manga.genres || []).slice(0, 3).forEach((genre) => meta.append(createTag(genre)));
   if (manga.source?.provider) meta.append(createTag(providerLabel(manga.source.provider)));
+  meta.append(createTag(chapterCountLabel(manga)));
 
   button.addEventListener("click", () => {
     location.hash = `manga/${manga.id}`;
@@ -306,7 +309,10 @@ async function renderDetails(id) {
       <p class="eyebrow">${escapeHtml(providerLabel(manga.source?.provider))}</p>
       <h2>${escapeHtml(manga.title)}</h2>
       <p class="details-copy">${escapeHtml(manga.synopsis || "Sem sinopse cadastrada.")}</p>
-      <div class="card-meta">${(manga.genres || []).map((genre) => `<span class="tag">${escapeHtml(genre)}</span>`).join("")}</div>
+      <div class="card-meta">
+        ${(manga.genres || []).map((genre) => `<span class="tag">${escapeHtml(genre)}</span>`).join("")}
+        <span class="tag">${escapeHtml(chapterCountLabel(manga))}</span>
+      </div>
       <div class="details-actions">
         <button class="button primary" type="button" id="startReading"${chapters.length ? "" : " disabled"}>Ler agora</button>
         <button class="button secondary" type="button" id="favoriteButton">${isFavorite ? "Remover favorito" : "Favoritar"}</button>
@@ -462,7 +468,7 @@ function renderAdmin() {
     row.innerHTML = `
       <div>
         <strong>${escapeHtml(manga.title)}</strong>
-        <p>${manga.chapters?.length || 0} capitulo(s) - ${escapeHtml(providerLabel(manga.source?.provider))}</p>
+        <p>${escapeHtml(chapterCountLabel(manga))} - ${escapeHtml(providerLabel(manga.source?.provider))}</p>
       </div>
       <button class="button secondary" type="button">Excluir</button>
     `;
@@ -497,6 +503,7 @@ function addManga(formData) {
     cover,
     synopsis: formData.get("synopsis").trim(),
     source: { provider: "local" },
+    chapterCount: 1,
     chapters: [
       {
         id: crypto.randomUUID(),
@@ -565,7 +572,10 @@ function createApiResultCard(manga) {
         <h3>${escapeHtml(manga.title)}</h3>
         <p>${escapeHtml(manga.author || providerLabel(manga.source.provider))}</p>
       </div>
-      <div class="card-meta">${manga.genres.slice(0, 2).map((genre) => `<span class="tag">${escapeHtml(genre)}</span>`).join("")}</div>
+      <div class="card-meta">
+        ${manga.genres.slice(0, 2).map((genre) => `<span class="tag">${escapeHtml(genre)}</span>`).join("")}
+        <span class="tag">${escapeHtml(chapterCountLabel(manga))}</span>
+      </div>
       <button class="button ${exists ? "secondary" : "primary"}" type="button">${exists ? "Ja importado" : "Importar"}</button>
     </div>
   `;
@@ -611,6 +621,7 @@ function normalizeMangaDex(item) {
     cover: cover ? `https://uploads.mangadex.org/covers/${item.id}/${cover}.512.jpg` : PLACEHOLDER_COVER,
     synopsis: pickText(attributes.description) || "Sem sinopse.",
     source: { provider: "mangadex", externalId: item.id },
+    chapterCount: null,
     chapters: [],
     chaptersLoaded: false
   };
@@ -624,6 +635,8 @@ function normalizeJikan(item) {
     cover: item.images?.webp?.large_image_url || item.images?.jpg?.large_image_url || PLACEHOLDER_COVER,
     synopsis: item.synopsis || "Sem sinopse.",
     source: { provider: "jikan", externalId: String(item.mal_id) },
+    chapterCount: item.chapters || null,
+    volumeCount: item.volumes || null,
     chapters: []
   };
 }
@@ -637,6 +650,8 @@ function normalizeAniList(item) {
     cover: item.coverImage?.extraLarge || item.coverImage?.large || PLACEHOLDER_COVER,
     synopsis: stripHtml(item.description) || "Sem sinopse.",
     source: { provider: "anilist", externalId: String(item.id) },
+    chapterCount: item.chapters || null,
+    volumeCount: item.volumes || null,
     chapters: []
   };
 }
@@ -650,6 +665,8 @@ function normalizeKitsu(item) {
     cover: attributes.posterImage?.large || attributes.posterImage?.original || PLACEHOLDER_COVER,
     synopsis: attributes.synopsis || "Sem sinopse.",
     source: { provider: "kitsu", externalId: String(item.id) },
+    chapterCount: attributes.chapterCount || null,
+    volumeCount: attributes.volumeCount || null,
     chapters: []
   };
 }
@@ -674,6 +691,7 @@ async function loadMangaDexChapters(manga) {
         source: { provider: "mangadex", externalId: chapter.id }
       };
     });
+    manga.chapterCount = manga.chapters.length;
     manga.chaptersLoaded = true;
     saveState();
   } catch (error) {
@@ -708,6 +726,20 @@ function stripHtml(value = "") {
 
 function providerLabel(provider = "local") {
   return apiProviders[provider]?.label || "Local";
+}
+
+function chapterCountLabel(manga) {
+  const chapterCount = Number(manga.chapterCount || manga.chapters?.length || 0);
+  if (chapterCount > 0) {
+    return `${chapterCount} capitulo${chapterCount === 1 ? "" : "s"}`;
+  }
+
+  const volumeCount = Number(manga.volumeCount || 0);
+  if (volumeCount > 0) {
+    return `${volumeCount} volume${volumeCount === 1 ? "" : "s"}`;
+  }
+
+  return "Capitulos nao informados";
 }
 
 function escapeHtml(value = "") {
