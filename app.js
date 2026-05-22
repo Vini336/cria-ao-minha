@@ -491,8 +491,9 @@ function renderAdmin() {
   });
 }
 
-function addManga(formData) {
-  const cover = formData.get("cover").trim();
+async function addManga(formData) {
+  const uploadedCover = await readImageFile(formData.get("coverFile"));
+  const cover = uploadedCover || formData.get("cover").trim() || PLACEHOLDER_COVER;
   const pages = formData
     .get("pages")
     .split(/\r?\n/)
@@ -511,7 +512,8 @@ function addManga(formData) {
     cover,
     synopsis: formData.get("synopsis").trim(),
     source: { provider: "local" },
-    chapterCount: 1,
+    chapterCount: Number(formData.get("chapterCount")) || 1,
+    volumeCount: Number(formData.get("volumeCount")) || null,
     chapters: [
       {
         id: crypto.randomUUID(),
@@ -537,9 +539,10 @@ function openEditDialog(manga) {
   editDialog.showModal();
 }
 
-function saveMangaCustomization(formData) {
+async function saveMangaCustomization(formData) {
   const manga = state.mangas.find((item) => item.id === formData.get("id"));
   if (!manga) return;
+  const uploadedCover = await readImageFile(formData.get("coverFile"));
 
   manga.title = formData.get("title").trim();
   manga.author = formData.get("author").trim();
@@ -548,13 +551,24 @@ function saveMangaCustomization(formData) {
     .split(",")
     .map((genre) => genre.trim())
     .filter(Boolean);
-  manga.cover = formData.get("cover").trim() || PLACEHOLDER_COVER;
+  manga.cover = uploadedCover || formData.get("cover").trim() || manga.cover || PLACEHOLDER_COVER;
   manga.synopsis = formData.get("synopsis").trim();
   manga.chapterCount = Number(formData.get("chapterCount")) || null;
   manga.volumeCount = Number(formData.get("volumeCount")) || null;
   manga.customizedAt = new Date().toISOString();
 
   saveState();
+}
+
+function readImageFile(file) {
+  if (!file || !file.size) return Promise.resolve("");
+
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
 }
 
 async function runApiSearch(event) {
@@ -581,7 +595,7 @@ async function runApiSearch(event) {
   apiStatus.textContent = `${total} resultado(s) encontrados${rejected.length ? `, ${rejected.length} API(s) falharam por rede/CORS/limite.` : "."}`;
 
   if (!total) {
-    apiResults.innerHTML = "<p>Nenhum resultado encontrado.</p>";
+    apiResults.innerHTML = "<p>Nenhum resultado encontrado. Voce pode criar esse manga manualmente no Admin.</p>";
     return;
   }
 
@@ -834,16 +848,17 @@ document.querySelector("#themeToggle").addEventListener("click", () => {
   applyTheme(nextTheme);
 });
 
-mangaForm.addEventListener("submit", (event) => {
+mangaForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  addManga(new FormData(mangaForm));
+  await addManga(new FormData(mangaForm));
   mangaForm.reset();
   renderAdmin();
+  renderHomeCatalog();
 });
 
-editForm.addEventListener("submit", (event) => {
+editForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  saveMangaCustomization(new FormData(editForm));
+  await saveMangaCustomization(new FormData(editForm));
   editDialog.close();
   renderAdmin();
   renderHomeCatalog();

@@ -303,6 +303,18 @@ h3 {
   color: var(--muted);
 }
 
+.manual-create-callout {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 14px 0 20px;
+  padding: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
 .api-results,
 .api-provider-block {
   display: grid;
@@ -548,7 +560,7 @@ select:focus {
   font-weight: 800;
 }
 
-.edit-form label:nth-of-type(7),
+.edit-form label:nth-of-type(8),
 .edit-form button[type="submit"] {
   grid-column: 1 / -1;
 }
@@ -571,8 +583,8 @@ select:focus {
   font-weight: 800;
 }
 
-.admin-form label:nth-child(5),
-.admin-form label:nth-child(7),
+.admin-form label:nth-child(8),
+.admin-form label:nth-child(10),
 .admin-form button {
   grid-column: 1 / -1;
 }
@@ -696,6 +708,11 @@ select:focus {
     grid-template-columns: 1fr;
   }
 
+  .manual-create-callout {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
   .manga-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;
@@ -757,7 +774,7 @@ select:focus {
     padding: 14px;
   }
 
-  .edit-form label:nth-of-type(7),
+  .edit-form label:nth-of-type(8),
   .edit-form button[type="submit"] {
     grid-column: auto;
   }

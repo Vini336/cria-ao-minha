@@ -82,6 +82,10 @@
         <p class="api-note" id="apiStatus">
           MangaDex pode abrir capitulos quando houver paginas publicas. Jikan, AniList e Kitsu importam dados de catalogo.
         </p>
+        <div class="manual-create-callout">
+          <span>Nao encontrou o manga?</span>
+          <a class="button secondary" href="#admin">Criar manualmente</a>
+        </div>
         <div class="api-results" id="apiResults"></div>
       </section>
 
@@ -137,7 +141,19 @@
           </label>
           <label>
             Capa
-            <input name="cover" required placeholder="URL da imagem" />
+            <input name="cover" placeholder="URL da imagem ou envie abaixo" />
+          </label>
+          <label>
+            Foto da capa
+            <input name="coverFile" type="file" accept="image/*" />
+          </label>
+          <label>
+            Capitulos / episodios
+            <input name="chapterCount" type="number" min="0" step="1" placeholder="Ex: 120" />
+          </label>
+          <label>
+            Volumes
+            <input name="volumeCount" type="number" min="0" step="1" placeholder="Opcional" />
           </label>
           <label>
             Sinopse
@@ -182,6 +198,10 @@
           <label>
             Capa
             <input name="cover" />
+          </label>
+          <label>
+            Trocar foto da capa
+            <input name="coverFile" type="file" accept="image/*" />
           </label>
           <label>
             Capitulos / episodios
