@@ -38,6 +38,7 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  overflow-x: hidden;
 }
 
 img {
@@ -103,6 +104,7 @@ a {
 .button {
   border: 0;
   cursor: pointer;
+  touch-action: manipulation;
 }
 
 .top-nav a {
@@ -205,7 +207,7 @@ h3 {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 42px;
+  min-height: 44px;
   padding: 0 16px;
   border-radius: 8px;
   font-weight: 800;
@@ -271,7 +273,7 @@ input,
 textarea,
 select {
   width: 100%;
-  min-height: 44px;
+  min-height: 48px;
   padding: 10px 12px;
   color: var(--text);
   background: var(--surface);
@@ -482,21 +484,89 @@ select:focus {
 }
 
 @media (max-width: 760px) {
+  body {
+    padding-bottom: calc(76px + env(safe-area-inset-bottom));
+  }
+
   .app-header {
-    flex-wrap: wrap;
-    min-height: auto;
-    padding-block: 12px;
+    min-height: 60px;
+    padding: 8px 14px;
+  }
+
+  .brand {
+    font-size: 0.98rem;
+  }
+
+  .brand-mark {
+    width: 32px;
+    height: 32px;
   }
 
   .top-nav {
-    order: 3;
-    width: 100%;
+    position: fixed;
+    right: 10px;
+    bottom: max(10px, env(safe-area-inset-bottom));
+    left: 10px;
+    z-index: 40;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 4px;
+    width: auto;
+    margin: 0;
+    padding: 8px;
     overflow-x: auto;
-    margin-left: 0;
+    background: color-mix(in srgb, var(--surface) 94%, transparent);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(18px);
+  }
+
+  .top-nav a {
+    min-height: 44px;
+    padding: 8px 4px;
+    text-align: center;
+    font-size: 0.78rem;
+    line-height: 1.1;
   }
 
   .view {
-    min-height: calc(100vh - 124px);
+    min-height: calc(100svh - 60px);
+  }
+
+  .hero-view {
+    min-height: calc(100svh - 60px);
+    align-items: center;
+    padding: 24px 16px 96px;
+    background-position: center;
+  }
+
+  .hero-copy {
+    padding-bottom: 0;
+  }
+
+  h1 {
+    font-size: clamp(2.7rem, 18vw, 4.6rem);
+  }
+
+  h2 {
+    font-size: clamp(1.8rem, 10vw, 2.5rem);
+  }
+
+  .hero-copy p:not(.eyebrow) {
+    font-size: 1rem;
+    line-height: 1.55;
+  }
+
+  .hero-actions,
+  .details-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .page-view {
+    width: min(100% - 24px, 1180px);
+    padding: 24px 0 34px;
   }
 
   .page-heading,
@@ -516,12 +586,93 @@ select:focus {
     grid-template-columns: 1fr;
   }
 
+  .manga-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .manga-card {
+    box-shadow: 0 10px 28px rgba(27, 24, 18, 0.12);
+  }
+
+  .manga-card-body {
+    gap: 10px;
+    padding: 10px;
+  }
+
+  .manga-card h3 {
+    font-size: 0.95rem;
+  }
+
+  .manga-card p {
+    font-size: 0.84rem;
+  }
+
+  .tag {
+    min-height: 24px;
+    padding: 0 7px;
+    font-size: 0.72rem;
+  }
+
+  .details-poster {
+    width: min(260px, 100%);
+    margin: 0 auto;
+  }
+
+  .chapter-list {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .chapter-button,
+  .button,
+  .text-button,
+  input,
+  textarea,
+  select {
+    min-height: 48px;
+  }
+
+  .admin-form {
+    padding: 14px;
+  }
+
   .reader-toolbar {
-    top: 124px;
-    grid-template-columns: 42px 1fr;
+    top: 60px;
+    grid-template-columns: auto 1fr;
+    padding: 10px 10px;
   }
 
   .reader-toolbar select {
     grid-column: 1 / -1;
+  }
+
+  .reader-pages {
+    gap: 8px;
+    padding: 10px 0 24px;
+  }
+
+  .reader-page {
+    min-height: auto;
+    border-radius: 0;
+  }
+
+  .reader-page img {
+    height: auto;
+    object-fit: contain;
+  }
+}
+
+@media (max-width: 380px) {
+  .top-nav a {
+    font-size: 0.7rem;
+  }
+
+  .manga-grid {
+    gap: 10px;
+  }
+
+  .manga-card-body {
+    padding: 9px;
   }
 }
