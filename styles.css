@@ -136,7 +136,9 @@ a {
 
 .hero-view {
   display: grid;
+  grid-template-columns: minmax(280px, 0.9fr) minmax(320px, 1.1fr);
   align-items: end;
+  gap: clamp(22px, 4vw, 46px);
   padding: clamp(28px, 5vw, 56px);
   background:
     linear-gradient(90deg, rgba(11, 11, 10, 0.82), rgba(11, 11, 10, 0.34) 55%, rgba(11, 11, 10, 0.12)),
@@ -147,6 +149,48 @@ a {
 .hero-copy {
   width: min(680px, 100%);
   padding-bottom: min(10vh, 96px);
+}
+
+.home-catalog {
+  display: grid;
+  gap: 14px;
+  align-self: stretch;
+  align-content: start;
+  width: 100%;
+  padding-top: clamp(12px, 4vh, 42px);
+}
+
+.home-catalog input {
+  background: rgba(255, 255, 255, 0.94);
+  color: #171717;
+  border-color: rgba(255, 255, 255, 0.52);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.22);
+}
+
+.home-manga-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.home-manga-grid .manga-card {
+  box-shadow: 0 14px 38px rgba(0, 0, 0, 0.26);
+}
+
+.home-manga-grid .manga-card-body {
+  padding: 10px;
+}
+
+.home-manga-grid h3 {
+  font-size: 0.95rem;
+}
+
+.home-manga-grid p {
+  font-size: 0.82rem;
+}
+
+.home-empty {
+  color: rgba(255, 255, 255, 0.82);
 }
 
 .eyebrow {
@@ -535,13 +579,16 @@ select:focus {
   }
 
   .hero-view {
+    grid-template-columns: 1fr;
     min-height: calc(100svh - 60px);
-    align-items: center;
-    padding: 24px 16px 96px;
+    align-items: start;
+    gap: 18px;
+    padding: 18px 12px 96px;
     background-position: center;
   }
 
   .hero-copy {
+    width: 100%;
     padding-bottom: 0;
   }
 
@@ -556,6 +603,19 @@ select:focus {
   .hero-copy p:not(.eyebrow) {
     font-size: 1rem;
     line-height: 1.55;
+  }
+
+  .home-catalog {
+    padding-top: 0;
+  }
+
+  .home-manga-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .home-manga-grid .manga-card:nth-child(n + 7) {
+    display: none;
   }
 
   .hero-actions,

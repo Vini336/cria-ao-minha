@@ -121,6 +121,8 @@ const views = {
 const mangaGrid = document.querySelector("#mangaGrid");
 const genreFilters = document.querySelector("#genreFilters");
 const searchInput = document.querySelector("#searchInput");
+const homeSearchInput = document.querySelector("#homeSearchInput");
+const homeMangaGrid = document.querySelector("#homeMangaGrid");
 const detailsContent = document.querySelector("#detailsContent");
 const historyList = document.querySelector("#historyList");
 const adminList = document.querySelector("#adminList");
@@ -186,6 +188,7 @@ function navigate() {
     return;
   }
 
+  if (route === "home") renderHomeCatalog();
   if (route === "library") renderLibrary();
   if (route === "history") renderHistory();
   if (route === "admin") renderAdmin();
@@ -230,6 +233,25 @@ function renderLibrary() {
   }
 
   filtered.forEach((manga) => mangaGrid.append(createMangaCard(manga)));
+}
+
+function renderHomeCatalog() {
+  const query = homeSearchInput.value.trim().toLowerCase();
+  homeMangaGrid.innerHTML = "";
+
+  const filtered = state.mangas
+    .filter((manga) => {
+      const haystack = [manga.title, manga.author, (manga.genres || []).join(" ")].join(" ").toLowerCase();
+      return !query || haystack.includes(query);
+    })
+    .slice(0, 8);
+
+  if (!filtered.length) {
+    homeMangaGrid.innerHTML = '<p class="home-empty">Nenhum manga salvo ainda.</p>';
+    return;
+  }
+
+  filtered.forEach((manga) => homeMangaGrid.append(createMangaCard(manga)));
 }
 
 function createMangaCard(manga) {
@@ -708,6 +730,7 @@ function applyTheme(theme) {
 }
 
 searchInput.addEventListener("input", renderLibrary);
+homeSearchInput.addEventListener("input", renderHomeCatalog);
 apiSearchForm.addEventListener("submit", runApiSearch);
 
 document.querySelector("#backToLibrary").addEventListener("click", () => {
