@@ -156,6 +156,48 @@
 
         <div class="admin-list" id="adminList"></div>
       </section>
+
+      <dialog class="edit-dialog" id="editDialog">
+        <form class="edit-form" id="editForm" method="dialog">
+          <div class="dialog-heading">
+            <div>
+              <p class="eyebrow">Personalizar</p>
+              <h3>Editar manga</h3>
+            </div>
+            <button class="icon-button" id="closeEditDialog" type="button" aria-label="Fechar">X</button>
+          </div>
+          <input name="id" type="hidden" />
+          <label>
+            Titulo
+            <input name="title" required />
+          </label>
+          <label>
+            Autor
+            <input name="author" />
+          </label>
+          <label>
+            Generos
+            <input name="genres" placeholder="Acao, Fantasia, Romance" />
+          </label>
+          <label>
+            Capa
+            <input name="cover" />
+          </label>
+          <label>
+            Capitulos / episodios
+            <input name="chapterCount" type="number" min="0" step="1" placeholder="Ex: 120" />
+          </label>
+          <label>
+            Volumes
+            <input name="volumeCount" type="number" min="0" step="1" placeholder="Opcional" />
+          </label>
+          <label>
+            Sinopse
+            <textarea name="synopsis"></textarea>
+          </label>
+          <button class="button primary" type="submit">Salvar alteracoes</button>
+        </form>
+      </dialog>
     </main>
 
     <template id="mangaCardTemplate">

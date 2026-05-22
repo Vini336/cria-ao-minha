@@ -129,6 +129,8 @@ const detailsContent = document.querySelector("#detailsContent");
 const historyList = document.querySelector("#historyList");
 const adminList = document.querySelector("#adminList");
 const mangaForm = document.querySelector("#mangaForm");
+const editDialog = document.querySelector("#editDialog");
+const editForm = document.querySelector("#editForm");
 const apiSearchForm = document.querySelector("#apiSearchForm");
 const apiSearchInput = document.querySelector("#apiSearchInput");
 const apiProvider = document.querySelector("#apiProvider");
@@ -470,9 +472,15 @@ function renderAdmin() {
         <strong>${escapeHtml(manga.title)}</strong>
         <p>${escapeHtml(chapterCountLabel(manga))} - ${escapeHtml(providerLabel(manga.source?.provider))}</p>
       </div>
-      <button class="button secondary" type="button">Excluir</button>
+      <div class="admin-actions">
+        <button class="button secondary" type="button" data-action="edit">Personalizar</button>
+        <button class="button secondary" type="button" data-action="delete">Excluir</button>
+      </div>
     `;
-    row.querySelector("button").addEventListener("click", () => {
+    row.querySelector('[data-action="edit"]').addEventListener("click", () => {
+      openEditDialog(manga);
+    });
+    row.querySelector('[data-action="delete"]').addEventListener("click", () => {
       state.mangas = state.mangas.filter((item) => item.id !== manga.id);
       state.favorites = state.favorites.filter((id) => id !== manga.id);
       state.history = state.history.filter((item) => item.mangaId !== manga.id);
@@ -514,6 +522,38 @@ function addManga(formData) {
   };
 
   state.mangas.unshift(manga);
+  saveState();
+}
+
+function openEditDialog(manga) {
+  editForm.elements.id.value = manga.id;
+  editForm.elements.title.value = manga.title || "";
+  editForm.elements.author.value = manga.author || "";
+  editForm.elements.genres.value = (manga.genres || []).join(", ");
+  editForm.elements.cover.value = manga.cover || "";
+  editForm.elements.chapterCount.value = manga.chapterCount || manga.chapters?.length || "";
+  editForm.elements.volumeCount.value = manga.volumeCount || "";
+  editForm.elements.synopsis.value = manga.synopsis || "";
+  editDialog.showModal();
+}
+
+function saveMangaCustomization(formData) {
+  const manga = state.mangas.find((item) => item.id === formData.get("id"));
+  if (!manga) return;
+
+  manga.title = formData.get("title").trim();
+  manga.author = formData.get("author").trim();
+  manga.genres = formData
+    .get("genres")
+    .split(",")
+    .map((genre) => genre.trim())
+    .filter(Boolean);
+  manga.cover = formData.get("cover").trim() || PLACEHOLDER_COVER;
+  manga.synopsis = formData.get("synopsis").trim();
+  manga.chapterCount = Number(formData.get("chapterCount")) || null;
+  manga.volumeCount = Number(formData.get("volumeCount")) || null;
+  manga.customizedAt = new Date().toISOString();
+
   saveState();
 }
 
@@ -799,6 +839,18 @@ mangaForm.addEventListener("submit", (event) => {
   addManga(new FormData(mangaForm));
   mangaForm.reset();
   renderAdmin();
+});
+
+editForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  saveMangaCustomization(new FormData(editForm));
+  editDialog.close();
+  renderAdmin();
+  renderHomeCatalog();
+});
+
+document.querySelector("#closeEditDialog").addEventListener("click", () => {
+  editDialog.close();
 });
 
 window.addEventListener("hashchange", navigate);
