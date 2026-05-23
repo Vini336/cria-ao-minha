@@ -2,6 +2,13 @@ const STORAGE_KEY = "mangaZenith:data:v2";
 const THEME_KEY = "mangaZenith:theme";
 const PLACEHOLDER_COVER =
   "https://images.unsplash.com/photo-1612036782180-6f0b6cd846fe?auto=format&fit=crop&w=900&q=80";
+const STATUS_OPTIONS = {
+  reading: "Lendo",
+  planned: "Quero ler",
+  completed: "Completo",
+  paused: "Pausado",
+  dropped: "Dropado"
+};
 
 const sampleData = {
   mangas: [
@@ -13,6 +20,9 @@ const sampleData = {
       cover: "https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?auto=format&fit=crop&w=900&q=80",
       synopsis:
         "Uma agente renasce como herdeira nobre e tenta viver em silencio, ate perceber que a escola imperial esconde conspiracoes perigosas.",
+      status: "reading",
+      progressChapter: 1,
+      score: 8,
       source: { provider: "local" },
       chapters: [
         {
@@ -123,6 +133,7 @@ const views = {
 const mangaGrid = document.querySelector("#mangaGrid");
 const genreFilters = document.querySelector("#genreFilters");
 const searchInput = document.querySelector("#searchInput");
+const statusFilter = document.querySelector("#statusFilter");
 const homeSearchInput = document.querySelector("#homeSearchInput");
 const homeMangaGrid = document.querySelector("#homeMangaGrid");
 const detailsContent = document.querySelector("#detailsContent");
@@ -131,6 +142,8 @@ const adminList = document.querySelector("#adminList");
 const mangaForm = document.querySelector("#mangaForm");
 const editDialog = document.querySelector("#editDialog");
 const editForm = document.querySelector("#editForm");
+const chapterDialog = document.querySelector("#chapterDialog");
+const chapterForm = document.querySelector("#chapterForm");
 const apiSearchForm = document.querySelector("#apiSearchForm");
 const apiSearchInput = document.querySelector("#apiSearchInput");
 const apiProvider = document.querySelector("#apiProvider");
@@ -149,11 +162,19 @@ function loadState() {
     parsed.mangas = parsed.mangas || [];
     parsed.favorites = parsed.favorites || [];
     parsed.history = parsed.history || [];
+    parsed.mangas.forEach(normalizeMangaProgress);
     return parsed;
   } catch {
     saveRawState(sampleData);
     return structuredClone(sampleData);
   }
+}
+
+function normalizeMangaProgress(manga) {
+  manga.status = STATUS_OPTIONS[manga.status] ? manga.status : "reading";
+  manga.progressChapter = clampProgress(Number(manga.progressChapter || 0), manga);
+  manga.score = manga.score ? clampScore(Number(manga.score)) : null;
+  manga.chapters = manga.chapters || [];
 }
 
 function saveRawState(value) {
@@ -221,6 +242,7 @@ function renderGenreFilters() {
 
 function renderLibrary() {
   const query = searchInput.value.trim().toLowerCase();
+  const selectedStatus = statusFilter.value;
   renderGenreFilters();
   mangaGrid.innerHTML = "";
 
@@ -228,11 +250,12 @@ function renderLibrary() {
     const haystack = [manga.title, manga.author, (manga.genres || []).join(" ")].join(" ").toLowerCase();
     const matchesQuery = !query || haystack.includes(query);
     const matchesGenre = currentGenre === "Todos" || (manga.genres || []).includes(currentGenre);
-    return matchesQuery && matchesGenre;
+    const matchesStatus = selectedStatus === "all" || manga.status === selectedStatus;
+    return matchesQuery && matchesGenre && matchesStatus;
   });
 
   if (!filtered.length) {
-    mangaGrid.innerHTML = "<p>Nenhum manga encontrado. Importe pela aba APIs ou cadastre no Admin.</p>";
+    mangaGrid.innerHTML = "<p>Nenhum manga encontrado nesse filtro. Adicione pela aba Buscar ou cadastre no Admin.</p>";
     return;
   }
 
@@ -247,6 +270,10 @@ function renderHomeCatalog() {
     .filter((manga) => {
       const haystack = [manga.title, manga.author, (manga.genres || []).join(" ")].join(" ").toLowerCase();
       return !query || haystack.includes(query);
+    })
+    .sort((a, b) => {
+      const statusOrder = { reading: 0, paused: 1, planned: 2, completed: 3, dropped: 4 };
+      return (statusOrder[a.status] ?? 9) - (statusOrder[b.status] ?? 9);
     })
     .slice(0, 8);
 
@@ -271,9 +298,39 @@ function createMangaCard(manga) {
   image.alt = `Capa de ${manga.title}`;
   title.textContent = manga.title;
   author.textContent = manga.author || providerLabel(manga.source?.provider);
-  (manga.genres || []).slice(0, 3).forEach((genre) => meta.append(createTag(genre)));
-  if (manga.source?.provider) meta.append(createTag(providerLabel(manga.source.provider)));
-  meta.append(createTag(chapterCountLabel(manga)));
+  meta.append(createTag(statusLabel(manga.status)));
+  (manga.genres || []).slice(0, 2).forEach((genre) => meta.append(createTag(genre)));
+  meta.append(createTag(progressLabel(manga)));
+
+  const progress = document.createElement("div");
+  progress.className = "progress-strip";
+  progress.innerHTML = `
+    <div>
+      <span>${escapeHtml(progressLabel(manga))}</span>
+      <strong>${progressPercent(manga)}%</strong>
+    </div>
+    <progress max="100" value="${progressPercent(manga)}"></progress>
+  `;
+
+  const quickActions = document.createElement("div");
+  quickActions.className = "quick-progress";
+  quickActions.innerHTML = `
+    <button type="button" aria-label="Diminuir capitulo">-</button>
+    <button type="button" aria-label="Aumentar capitulo">+</button>
+  `;
+  const [minusButton, plusButton] = quickActions.querySelectorAll("button");
+  minusButton.addEventListener("click", (event) => {
+    event.stopPropagation();
+    updateMangaProgress(manga.id, manga.progressChapter - 1);
+    renderVisibleLists();
+  });
+  plusButton.addEventListener("click", (event) => {
+    event.stopPropagation();
+    updateMangaProgress(manga.id, manga.progressChapter + 1);
+    renderVisibleLists();
+  });
+
+  article.querySelector(".manga-card-body").append(progress, quickActions);
 
   button.addEventListener("click", () => {
     location.hash = `manga/${manga.id}`;
@@ -287,6 +344,15 @@ function createTag(text) {
   tag.className = "tag";
   tag.textContent = text;
   return tag;
+}
+
+function renderVisibleLists() {
+  const route = location.hash.replace("#", "").split("/")[0] || "home";
+  if (route === "home") renderHomeCatalog();
+  if (route === "library") renderLibrary();
+  if (route === "history") renderHistory();
+  if (route === "admin") renderAdmin();
+  if (route === "manga" && currentMangaId) renderDetails(currentMangaId);
 }
 
 async function renderDetails(id) {
@@ -303,6 +369,8 @@ async function renderDetails(id) {
 
   const isFavorite = state.favorites.includes(id);
   const chapters = manga.chapters || [];
+  const totalChapters = getChapterTotal(manga);
+  const progressValue = clampProgress(manga.progressChapter, manga);
   detailsContent.innerHTML = `
     <div class="details-poster">
       <img src="${escapeHtml(manga.cover || PLACEHOLDER_COVER)}" alt="Capa de ${escapeHtml(manga.title)}">
@@ -314,16 +382,49 @@ async function renderDetails(id) {
       <div class="card-meta">
         ${(manga.genres || []).map((genre) => `<span class="tag">${escapeHtml(genre)}</span>`).join("")}
         <span class="tag">${escapeHtml(chapterCountLabel(manga))}</span>
+        <span class="tag">${escapeHtml(statusLabel(manga.status))}</span>
+        ${manga.score ? `<span class="tag">Nota ${escapeHtml(manga.score)}/10</span>` : ""}
+      </div>
+      <div class="tracking-panel">
+        <label>
+          Status
+          <select id="detailsStatus">
+            ${Object.entries(STATUS_OPTIONS)
+              .map(([value, label]) => `<option value="${value}"${manga.status === value ? " selected" : ""}>${label}</option>`)
+              .join("")}
+          </select>
+        </label>
+        <label>
+          Capitulo atual
+          <div class="progress-editor">
+            <button type="button" id="decreaseProgress" aria-label="Diminuir capitulo">-</button>
+            <input id="progressInput" type="number" min="0" ${totalChapters ? `max="${totalChapters}"` : ""} value="${progressValue}">
+            <button type="button" id="increaseProgress" aria-label="Aumentar capitulo">+</button>
+          </div>
+        </label>
+        <label>
+          Nota
+          <input id="scoreInput" type="number" min="1" max="10" placeholder="1 a 10" value="${manga.score || ""}">
+        </label>
+        <div class="progress-strip large">
+          <div>
+            <span>${escapeHtml(progressLabel(manga))}</span>
+            <strong>${progressPercent(manga)}%</strong>
+          </div>
+          <progress max="100" value="${progressPercent(manga)}"></progress>
+        </div>
       </div>
       <div class="details-actions">
         <button class="button primary" type="button" id="startReading"${chapters.length ? "" : " disabled"}>Ler agora</button>
+        <button class="button secondary" type="button" id="addChapterButton">Adicionar capitulo</button>
         <button class="button secondary" type="button" id="favoriteButton">${isFavorite ? "Remover favorito" : "Favoritar"}</button>
+        <button class="button secondary" type="button" id="completeButton">Marcar completo</button>
       </div>
       <div class="chapter-list">
         ${
           chapters.length
             ? chapters
-                .map((chapter) => `<button class="chapter-button" type="button" data-chapter="${chapter.id}">${escapeHtml(chapter.title)}</button>`)
+                .map((chapter, index) => `<button class="chapter-button${index + 1 <= progressValue ? " read" : ""}" type="button" data-chapter="${chapter.id}" data-index="${index + 1}">${escapeHtml(chapter.title)}</button>`)
                 .join("")
             : "<p>Esta API so entrega dados de catalogo. Adicione paginas manualmente para ler aqui.</p>"
         }
@@ -344,8 +445,45 @@ async function renderDetails(id) {
     renderDetails(manga.id);
   });
 
+  detailsContent.querySelector("#detailsStatus").addEventListener("change", (event) => {
+    updateMangaStatus(manga.id, event.target.value);
+    renderDetails(manga.id);
+  });
+
+  detailsContent.querySelector("#progressInput").addEventListener("change", (event) => {
+    updateMangaProgress(manga.id, event.target.value);
+    renderDetails(manga.id);
+  });
+
+  detailsContent.querySelector("#scoreInput").addEventListener("change", (event) => {
+    manga.score = event.target.value ? clampScore(event.target.value) : null;
+    manga.updatedAt = new Date().toISOString();
+    saveState();
+    renderDetails(manga.id);
+  });
+
+  detailsContent.querySelector("#decreaseProgress").addEventListener("click", () => {
+    updateMangaProgress(manga.id, manga.progressChapter - 1);
+    renderDetails(manga.id);
+  });
+
+  detailsContent.querySelector("#increaseProgress").addEventListener("click", () => {
+    updateMangaProgress(manga.id, manga.progressChapter + 1);
+    renderDetails(manga.id);
+  });
+
+  detailsContent.querySelector("#completeButton").addEventListener("click", () => {
+    updateMangaStatus(manga.id, "completed");
+    renderDetails(manga.id);
+  });
+
+  detailsContent.querySelector("#addChapterButton").addEventListener("click", () => {
+    openChapterDialog(manga);
+  });
+
   detailsContent.querySelectorAll("[data-chapter]").forEach((button) => {
     button.addEventListener("click", () => {
+      updateMangaProgress(manga.id, button.dataset.index);
       location.hash = `read/${manga.id}/${button.dataset.chapter}`;
     });
   });
@@ -408,6 +546,14 @@ async function renderReader(mangaId, chapterId) {
 }
 
 function recordHistory(mangaId, chapterId) {
+  const manga = state.mangas.find((item) => item.id === mangaId);
+  const chapterIndex = manga?.chapters?.findIndex((chapter) => chapter.id === chapterId) ?? -1;
+  if (manga && chapterIndex >= 0) {
+    manga.progressChapter = Math.max(clampProgress(manga.progressChapter, manga), chapterIndex + 1);
+    if (manga.status === "planned") manga.status = "reading";
+    if (getChapterTotal(manga) && manga.progressChapter >= getChapterTotal(manga)) manga.status = "completed";
+    manga.updatedAt = new Date().toISOString();
+  }
   state.history = state.history.filter((item) => item.mangaId !== mangaId);
   state.history.unshift({
     mangaId,
@@ -419,6 +565,16 @@ function recordHistory(mangaId, chapterId) {
 
 function renderHistory() {
   historyList.innerHTML = "";
+  const stats = document.createElement("section");
+  stats.className = "status-summary";
+  Object.entries(STATUS_OPTIONS).forEach(([status, label]) => {
+    const count = state.mangas.filter((manga) => manga.status === status).length;
+    const tile = document.createElement("article");
+    tile.innerHTML = `<strong>${count}</strong><span>${escapeHtml(label)}</span>`;
+    stats.append(tile);
+  });
+  historyList.append(stats);
+
   const favoriteItems = state.favorites
     .map((id) => state.mangas.find((manga) => manga.id === id))
     .filter(Boolean);
@@ -441,8 +597,21 @@ function renderHistory() {
     });
   }
 
-  if (!historyList.children.length) {
-    historyList.innerHTML = "<p>Seu historico ainda esta vazio.</p>";
+  const activeList = state.mangas
+    .filter((manga) => ["reading", "paused", "planned"].includes(manga.status))
+    .sort((a, b) => (b.updatedAt || b.importedAt || "").localeCompare(a.updatedAt || a.importedAt || ""));
+
+  if (activeList.length) {
+    const heading = document.createElement("h3");
+    heading.textContent = "Lista de acompanhamento";
+    historyList.append(heading);
+    activeList.forEach((manga) => historyList.append(createHistoryItem(manga, getContinueChapter(manga), statusLabel(manga.status))));
+  }
+
+  if (historyList.children.length === 1 && !state.mangas.length) {
+    const empty = document.createElement("p");
+    empty.textContent = "Sua lista ainda esta vazia.";
+    historyList.append(empty);
   }
 }
 
@@ -452,7 +621,7 @@ function createHistoryItem(manga, chapter, label) {
   item.innerHTML = `
     <div>
       <strong>${escapeHtml(manga.title)}</strong>
-      <p>${label}${chapter ? ` - ${escapeHtml(chapter.title)}` : ""}</p>
+      <p>${label} - ${escapeHtml(progressLabel(manga))}${chapter ? ` - ${escapeHtml(chapter.title)}` : ""}</p>
     </div>
     <button class="button primary" type="button">${chapter ? "Continuar" : "Ver"}</button>
   `;
@@ -470,7 +639,7 @@ function renderAdmin() {
     row.innerHTML = `
       <div>
         <strong>${escapeHtml(manga.title)}</strong>
-        <p>${escapeHtml(chapterCountLabel(manga))} - ${escapeHtml(providerLabel(manga.source?.provider))}</p>
+        <p>${escapeHtml(statusLabel(manga.status))} - ${escapeHtml(progressLabel(manga))} - ${escapeHtml(providerLabel(manga.source?.provider))}</p>
       </div>
       <div class="admin-actions">
         <button class="button secondary" type="button" data-action="edit">Personalizar</button>
@@ -499,6 +668,16 @@ async function addManga(formData) {
     .split(/\r?\n/)
     .map((page) => page.trim())
     .filter(Boolean);
+  const chapterTitle = formData.get("chapterTitle").trim();
+  const chapters = chapterTitle || pages.length
+    ? [
+        {
+          id: crypto.randomUUID(),
+          title: chapterTitle || "Capitulo 1",
+          pages
+        }
+      ]
+    : [];
 
   const manga = {
     id: crypto.randomUUID(),
@@ -511,16 +690,13 @@ async function addManga(formData) {
       .filter(Boolean),
     cover,
     synopsis: formData.get("synopsis").trim(),
+    status: "reading",
+    progressChapter: 0,
+    score: null,
     source: { provider: "local" },
-    chapterCount: Number(formData.get("chapterCount")) || 1,
+    chapterCount: Number(formData.get("chapterCount")) || chapters.length,
     volumeCount: Number(formData.get("volumeCount")) || null,
-    chapters: [
-      {
-        id: crypto.randomUUID(),
-        title: formData.get("chapterTitle").trim(),
-        pages: pages.length ? pages : [cover]
-      }
-    ]
+    chapters
   };
 
   state.mangas.unshift(manga);
@@ -537,6 +713,14 @@ function openEditDialog(manga) {
   editForm.elements.volumeCount.value = manga.volumeCount || "";
   editForm.elements.synopsis.value = manga.synopsis || "";
   editDialog.showModal();
+}
+
+function openChapterDialog(manga) {
+  const nextNumber = (manga.chapters?.length || 0) + 1;
+  chapterForm.reset();
+  chapterForm.elements.mangaId.value = manga.id;
+  chapterForm.elements.chapterTitle.value = `Capitulo ${nextNumber}`;
+  chapterDialog.showModal();
 }
 
 async function saveMangaCustomization(formData) {
@@ -558,6 +742,30 @@ async function saveMangaCustomization(formData) {
   manga.customizedAt = new Date().toISOString();
 
   saveState();
+}
+
+function addChapter(formData) {
+  const manga = state.mangas.find((item) => item.id === formData.get("mangaId"));
+  if (!manga) return null;
+
+  const pages = formData
+    .get("pages")
+    .split(/\r?\n/)
+    .map((page) => page.trim())
+    .filter(Boolean);
+
+  const chapter = {
+    id: crypto.randomUUID(),
+    title: formData.get("chapterTitle").trim(),
+    pages
+  };
+
+  manga.chapters = manga.chapters || [];
+  manga.chapters.push(chapter);
+  manga.chapterCount = Math.max(Number(manga.chapterCount || 0), manga.chapters.length);
+  manga.updatedAt = new Date().toISOString();
+  saveState();
+  return { manga, chapter };
 }
 
 function readImageFile(file) {
@@ -630,27 +838,48 @@ function createApiResultCard(manga) {
         ${manga.genres.slice(0, 2).map((genre) => `<span class="tag">${escapeHtml(genre)}</span>`).join("")}
         <span class="tag">${escapeHtml(chapterCountLabel(manga))}</span>
       </div>
-      <button class="button ${exists ? "secondary" : "primary"}" type="button">${exists ? "Ja importado" : "Importar"}</button>
+      <div class="api-card-actions">
+        <button class="button ${exists ? "secondary" : "primary"}" type="button" data-action="import">${exists ? "Ja importado" : "Importar"}</button>
+        <button class="button secondary" type="button" data-action="chapter">Adicionar capitulo</button>
+      </div>
     </div>
   `;
 
-  const button = card.querySelector("button");
-  button.disabled = exists;
-  button.addEventListener("click", () => {
+  const importButton = card.querySelector('[data-action="import"]');
+  const chapterButton = card.querySelector('[data-action="chapter"]');
+  importButton.disabled = exists;
+  importButton.addEventListener("click", () => {
     const imported = importManga(manga);
-    button.textContent = "Importado";
-    button.className = "button secondary";
-    button.disabled = true;
+    importButton.textContent = "Importado";
+    importButton.className = "button secondary";
+    importButton.disabled = true;
     location.hash = `manga/${imported.id}`;
+  });
+  chapterButton.addEventListener("click", () => {
+    const imported = findImportedManga(manga) || importManga(manga);
+    importButton.textContent = "Importado";
+    importButton.className = "button secondary";
+    importButton.disabled = true;
+    location.hash = `manga/${imported.id}`;
+    openChapterDialog(imported);
   });
 
   return card;
+}
+
+function findImportedManga(manga) {
+  return state.mangas.find(
+    (item) => item.source?.provider === manga.source.provider && item.source?.externalId === manga.source.externalId
+  );
 }
 
 function importManga(manga) {
   const imported = {
     ...manga,
     id: crypto.randomUUID(),
+    status: "planned",
+    progressChapter: 0,
+    score: null,
     importedAt: new Date().toISOString(),
     chapters: manga.chapters || []
   };
@@ -796,6 +1025,59 @@ function chapterCountLabel(manga) {
   return "Capitulos nao informados";
 }
 
+function getChapterTotal(manga) {
+  return Number(manga.chapterCount || manga.chapters?.length || 0);
+}
+
+function clampProgress(value, manga) {
+  const total = getChapterTotal(manga);
+  const safeValue = Math.max(0, Math.floor(Number(value) || 0));
+  return total > 0 ? Math.min(safeValue, total) : safeValue;
+}
+
+function clampScore(value) {
+  return Math.max(1, Math.min(10, Math.floor(Number(value) || 0)));
+}
+
+function progressLabel(manga) {
+  const total = getChapterTotal(manga);
+  const progress = clampProgress(manga.progressChapter, manga);
+  return total ? `${progress}/${total} caps` : `${progress} caps`;
+}
+
+function progressPercent(manga) {
+  const total = getChapterTotal(manga);
+  return total ? Math.round((clampProgress(manga.progressChapter, manga) / total) * 100) : 0;
+}
+
+function statusLabel(status) {
+  return STATUS_OPTIONS[status] || STATUS_OPTIONS.reading;
+}
+
+function updateMangaProgress(id, value) {
+  const manga = state.mangas.find((item) => item.id === id);
+  if (!manga) return;
+  manga.progressChapter = clampProgress(value, manga);
+  if (getChapterTotal(manga) && manga.progressChapter >= getChapterTotal(manga)) {
+    manga.status = "completed";
+  } else if (manga.status === "planned" && manga.progressChapter > 0) {
+    manga.status = "reading";
+  }
+  manga.updatedAt = new Date().toISOString();
+  saveState();
+}
+
+function updateMangaStatus(id, status) {
+  const manga = state.mangas.find((item) => item.id === id);
+  if (!manga || !STATUS_OPTIONS[status]) return;
+  manga.status = status;
+  if (status === "completed" && getChapterTotal(manga)) {
+    manga.progressChapter = getChapterTotal(manga);
+  }
+  manga.updatedAt = new Date().toISOString();
+  saveState();
+}
+
 function escapeHtml(value = "") {
   return String(value).replace(/[&<>"']/g, (character) => {
     const replacements = {
@@ -816,6 +1098,7 @@ function applyTheme(theme) {
 }
 
 searchInput.addEventListener("input", renderLibrary);
+statusFilter.addEventListener("change", renderLibrary);
 homeSearchInput.addEventListener("input", renderHomeCatalog);
 apiSearchForm.addEventListener("submit", runApiSearch);
 
@@ -866,6 +1149,21 @@ editForm.addEventListener("submit", async (event) => {
 
 document.querySelector("#closeEditDialog").addEventListener("click", () => {
   editDialog.close();
+});
+
+document.querySelector("#closeChapterDialog").addEventListener("click", () => {
+  chapterDialog.close();
+});
+
+chapterForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const added = addChapter(new FormData(chapterForm));
+  chapterDialog.close();
+  chapterForm.reset();
+  if (added) {
+    renderDetails(added.manga.id);
+    renderHomeCatalog();
+  }
 });
 
 window.addEventListener("hashchange", navigate);

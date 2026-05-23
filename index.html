@@ -16,9 +16,9 @@
 
       <nav class="top-nav" aria-label="Navegacao principal">
         <a href="#home" data-route="home">Inicio</a>
-        <a href="#library" data-route="library">Biblioteca</a>
-        <a href="#discover" data-route="discover">APIs</a>
-        <a href="#history" data-route="history">Historico</a>
+        <a href="#library" data-route="library">Minha lista</a>
+        <a href="#discover" data-route="discover">Buscar</a>
+        <a href="#history" data-route="history">Progresso</a>
         <a href="#admin" data-route="admin">Admin</a>
       </nav>
 
@@ -30,19 +30,19 @@
     <main>
       <section class="view hero-view" id="homeView">
         <div class="hero-copy">
-          <p class="eyebrow">Catalogo local + APIs publicas</p>
+          <p class="eyebrow">Lista pessoal de mangas</p>
           <h1>Manga Zenith</h1>
           <p>
-            Leia, salve favoritos, importe mangas de APIs gratuitas e continue capitulos sem banco de dados.
-            Tudo que voce salva fica no navegador com localStorage.
+            Monte sua lista no estilo AniList, marque o que esta lendo, acompanhe capitulos,
+            favorite obras e continue de onde parou direto pelo navegador.
           </p>
           <div class="hero-actions">
-            <a class="button primary" href="#discover">Buscar nas APIs</a>
-            <a class="button secondary" href="#admin">Adicionar manualmente</a>
+            <a class="button primary" href="#library">Ver minha lista</a>
+            <a class="button secondary" href="#discover">Adicionar manga</a>
           </div>
         </div>
         <div class="home-catalog" aria-label="Mangas salvos">
-          <input id="homeSearchInput" type="search" placeholder="Procurar manga salvo" />
+          <input id="homeSearchInput" type="search" placeholder="Procurar na sua lista" />
           <div class="home-manga-grid" id="homeMangaGrid"></div>
         </div>
       </section>
@@ -50,10 +50,18 @@
       <section class="view page-view" id="libraryView" hidden>
         <div class="page-heading">
           <div>
-            <p class="eyebrow">Biblioteca</p>
-            <h2>Catalogo salvo</h2>
+            <p class="eyebrow">Biblioteca pessoal</p>
+            <h2>Minha lista</h2>
           </div>
-          <div class="search-box">
+          <div class="library-tools">
+            <select id="statusFilter" aria-label="Filtrar por status">
+              <option value="all">Todos os status</option>
+              <option value="reading">Lendo</option>
+              <option value="planned">Quero ler</option>
+              <option value="completed">Completo</option>
+              <option value="paused">Pausado</option>
+              <option value="dropped">Dropado</option>
+            </select>
             <input id="searchInput" type="search" placeholder="Buscar manga, genero ou autor" />
           </div>
         </div>
@@ -65,7 +73,7 @@
         <div class="page-heading">
           <div>
             <p class="eyebrow">APIs gratuitas</p>
-            <h2>Importar mangas</h2>
+            <h2>Adicionar mangas</h2>
           </div>
         </div>
         <form class="api-search" id="apiSearchForm">
@@ -80,7 +88,7 @@
           <button class="button primary" type="submit">Buscar</button>
         </form>
         <p class="api-note" id="apiStatus">
-          MangaDex pode abrir capitulos quando houver paginas publicas. Jikan, AniList e Kitsu importam dados de catalogo.
+          MangaDex pode abrir capitulos quando houver paginas publicas. Jikan, AniList e Kitsu importam dados para sua lista.
         </p>
         <div class="manual-create-callout">
           <span>Nao encontrou o manga?</span>
@@ -109,8 +117,8 @@
       <section class="view page-view" id="historyView" hidden>
         <div class="page-heading">
           <div>
-            <p class="eyebrow">Sua leitura</p>
-            <h2>Historico e favoritos</h2>
+            <p class="eyebrow">Acompanhamento</p>
+            <h2>Progresso e favoritos</h2>
           </div>
           <button class="button secondary" id="clearHistory" type="button">Limpar historico</button>
         </div>
@@ -161,11 +169,11 @@
           </label>
           <label>
             Capitulo inicial
-            <input name="chapterTitle" required placeholder="Capitulo 1" value="Capitulo 1" />
+            <input name="chapterTitle" placeholder="Opcional, ex: Capitulo 1" />
           </label>
           <label>
             Paginas do capitulo
-            <textarea name="pages" required placeholder="Uma URL de imagem por linha"></textarea>
+            <textarea name="pages" placeholder="Opcional: uma URL de imagem por linha"></textarea>
           </label>
           <button class="button primary" type="submit">Salvar manga</button>
         </form>
@@ -216,6 +224,28 @@
             <textarea name="synopsis"></textarea>
           </label>
           <button class="button primary" type="submit">Salvar alteracoes</button>
+        </form>
+      </dialog>
+
+      <dialog class="edit-dialog" id="chapterDialog">
+        <form class="edit-form" id="chapterForm" method="dialog">
+          <div class="dialog-heading">
+            <div>
+              <p class="eyebrow">Capitulos</p>
+              <h3>Adicionar capitulo</h3>
+            </div>
+            <button class="icon-button" id="closeChapterDialog" type="button" aria-label="Fechar">X</button>
+          </div>
+          <input name="mangaId" type="hidden" />
+          <label>
+            Titulo do capitulo
+            <input name="chapterTitle" required placeholder="Capitulo 1" />
+          </label>
+          <label>
+            Paginas do capitulo
+            <textarea name="pages" placeholder="Opcional: uma URL de imagem por linha"></textarea>
+          </label>
+          <button class="button primary" type="submit">Adicionar capitulo</button>
         </form>
       </dialog>
     </main>
