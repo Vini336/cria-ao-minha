@@ -162,6 +162,7 @@ const apiStatus = document.querySelector("#apiStatus");
 const userMenu = document.querySelector("#userMenu");
 const userName = document.querySelector("#userName");
 const logoutButton = document.querySelector("#logoutButton");
+const authButton = document.querySelector("#authButton");
 const loginTab = document.querySelector("#loginTab");
 const registerTab = document.querySelector("#registerTab");
 const loginForm = document.querySelector("#loginForm");
@@ -273,6 +274,20 @@ function setView(route) {
   document.querySelectorAll(".top-nav a").forEach((link) => {
     link.classList.toggle("active", link.dataset.route === route);
   });
+
+  scrollToView(route);
+}
+
+function scrollToView(route, behavior = "smooth") {
+  const element = views[route];
+  if (!element || element.hidden) return;
+
+  requestAnimationFrame(() => {
+    const header = document.querySelector(".app-header");
+    const headerOffset = (header?.offsetHeight || 0) + 24;
+    const targetTop = Math.max(0, element.getBoundingClientRect().top + window.scrollY - headerOffset);
+    window.scrollTo({ top: targetTop, behavior });
+  });
 }
 
 function navigate() {
@@ -309,6 +324,7 @@ function navigate() {
 function renderAuthState() {
   const isLoggedIn = Boolean(currentUser);
   userMenu.hidden = !isLoggedIn;
+  authButton.hidden = isLoggedIn;
   document.querySelector(".top-nav").hidden = !isLoggedIn;
   if (currentUser) userName.textContent = currentUser.username;
 
@@ -1296,6 +1312,24 @@ searchInput.addEventListener("input", renderLibrary);
 statusFilter.addEventListener("change", renderLibrary);
 homeSearchInput.addEventListener("input", renderHomeCatalog);
 apiSearchForm.addEventListener("submit", runApiSearch);
+document.querySelectorAll('a[href^="#"]').forEach((link) => {
+  link.addEventListener("click", (event) => {
+    const nextHash = link.getAttribute("href");
+    const route = nextHash.replace("#", "").split("/")[0];
+    if (!views[route]) return;
+
+    event.preventDefault();
+    if (location.hash === nextHash) {
+      navigate();
+      return;
+    }
+    location.hash = nextHash;
+  });
+});
+authButton.addEventListener("click", () => {
+  setAuthMode("login");
+  setView("auth");
+});
 loginTab.addEventListener("click", () => setAuthMode("login"));
 registerTab.addEventListener("click", () => setAuthMode("register"));
 loginForm.addEventListener("submit", handleLogin);
