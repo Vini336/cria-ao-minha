@@ -182,8 +182,8 @@ async function handleAuth(request, response, pathname) {
       const username = String(body.username || "").trim();
       const password = String(body.password || "");
 
-      if (username.length < 3 || password.length < 6) {
-        sendJson(response, 400, { error: "Preencha usuario e senha com pelo menos 6 caracteres." });
+      if (username.length < 3 || password.length < 4) {
+        sendJson(response, 400, { error: "Preencha usuario e senha com pelo menos 4 caracteres." });
         return;
       }
 
