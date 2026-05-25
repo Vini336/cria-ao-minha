@@ -5,6 +5,15 @@ const AUTH_ME_URL = "/api/auth/me";
 const LOGIN_URL = "/api/auth/login";
 const REGISTER_URL = "/api/auth/register";
 const LOGOUT_URL = "/api/auth/logout";
+const PAGE_ROUTES = {
+  home: "home",
+  library: "library",
+  search: "discover",
+  progress: "history",
+  admin: "admin",
+  login: "auth"
+};
+const CURRENT_PAGE = document.body.dataset.page || "home";
 const PLACEHOLDER_COVER =
   "https://images.unsplash.com/photo-1612036782180-6f0b6cd846fe?auto=format&fit=crop&w=900&q=80";
 const STATUS_OPTIONS = {
@@ -267,12 +276,12 @@ async function saveCloudState() {
 }
 
 function setView(route) {
-  Object.entries(views).forEach(([name, element]) => {
+  Object.entries(views).filter(([, element]) => element).forEach(([name, element]) => {
     element.hidden = name !== route;
   });
 
   document.querySelectorAll(".top-nav a").forEach((link) => {
-    link.classList.toggle("active", link.dataset.route === route);
+    link.classList.toggle("active", link.dataset.route === CURRENT_PAGE || link.dataset.view === route);
   });
 
   scrollToView(route);
@@ -292,7 +301,16 @@ function scrollToView(route, behavior = "smooth") {
 
 function navigate() {
   if (!authReady || !currentUser) {
+    if (CURRENT_PAGE !== "login" && authReady) {
+      window.location.href = pageUrl("login");
+      return;
+    }
     setView("auth");
+    return;
+  }
+
+  if (CURRENT_PAGE === "login") {
+    window.location.href = pageUrl("home");
     return;
   }
 
@@ -318,22 +336,34 @@ function navigate() {
   if (route === "history") renderHistory();
   if (route === "admin") renderAdmin();
 
-  setView(views[route] ? route : "home");
+  const currentRoute = PAGE_ROUTES[CURRENT_PAGE] || "home";
+  if (currentRoute === "home") renderHomeCatalog();
+  if (currentRoute === "library") renderLibrary();
+  if (currentRoute === "history") renderHistory();
+  if (currentRoute === "admin") renderAdmin();
+
+  setView(views[currentRoute] ? currentRoute : "home");
 }
 
 function renderAuthState() {
   const isLoggedIn = Boolean(currentUser);
-  userMenu.hidden = !isLoggedIn;
-  authButton.hidden = isLoggedIn;
-  document.querySelector(".top-nav").hidden = !isLoggedIn;
-  if (currentUser) userName.textContent = currentUser.username;
+  if (userMenu) userMenu.hidden = !isLoggedIn;
+  if (authButton) authButton.hidden = isLoggedIn || CURRENT_PAGE === "login";
+  const topNav = document.querySelector(".top-nav");
+  if (topNav) topNav.hidden = !isLoggedIn;
+  if (currentUser && userName) userName.textContent = currentUser.username;
 
-  if (!isLoggedIn) {
+  if (!isLoggedIn && CURRENT_PAGE === "login") {
     setView("auth");
   }
 }
 
+function pageUrl(page) {
+  return CURRENT_PAGE ? `../${page}/` : `${page}/`;
+}
+
 function setAuthMode(mode) {
+  if (!loginForm || !registerForm || !loginTab || !registerTab || !authStatus) return;
   const isRegister = mode === "register";
   loginForm.hidden = isRegister;
   registerForm.hidden = !isRegister;
@@ -436,6 +466,7 @@ function getGenres() {
 }
 
 function renderGenreFilters() {
+  if (!genreFilters) return;
   genreFilters.innerHTML = "";
   getGenres().forEach((genre) => {
     const button = document.createElement("button");
@@ -451,6 +482,7 @@ function renderGenreFilters() {
 }
 
 function renderLibrary() {
+  if (!mangaGrid || !searchInput || !statusFilter) return;
   const query = searchInput.value.trim().toLowerCase();
   const selectedStatus = statusFilter.value;
   renderGenreFilters();
@@ -473,6 +505,7 @@ function renderLibrary() {
 }
 
 function renderHomeCatalog() {
+  if (!homeMangaGrid || !homeSearchInput) return;
   const query = homeSearchInput.value.trim().toLowerCase();
   homeMangaGrid.innerHTML = "";
 
@@ -543,7 +576,7 @@ function createMangaCard(manga) {
   article.querySelector(".manga-card-body").append(progress, quickActions);
 
   button.addEventListener("click", () => {
-    location.hash = `manga/${manga.id}`;
+    window.location.href = `${pageUrl("library")}#manga/${manga.id}`;
   });
   article.addEventListener("dblclick", () => toggleFavorite(manga.id));
   return template;
@@ -566,6 +599,7 @@ function renderVisibleLists() {
 }
 
 async function renderDetails(id) {
+  if (!detailsContent) return;
   const manga = state.mangas.find((item) => item.id === id);
   if (!manga) {
     location.hash = "library";
@@ -722,8 +756,11 @@ async function renderReader(mangaId, chapterId) {
     return;
   }
 
-  document.querySelector("#readerTitle").textContent = manga.title;
-  document.querySelector("#readerChapter").textContent = chapter.title;
+  const readerTitle = document.querySelector("#readerTitle");
+  const readerChapter = document.querySelector("#readerChapter");
+  if (!readerTitle || !readerChapter) return;
+  readerTitle.textContent = manga.title;
+  readerChapter.textContent = chapter.title;
 
   const select = document.querySelector("#chapterSelect");
   select.innerHTML = manga.chapters.map((item) => `<option value="${item.id}">${escapeHtml(item.title)}</option>`).join("");
@@ -774,6 +811,7 @@ function recordHistory(mangaId, chapterId) {
 }
 
 function renderHistory() {
+  if (!historyList) return;
   historyList.innerHTML = "";
   const stats = document.createElement("section");
   stats.className = "status-summary";
@@ -836,12 +874,15 @@ function createHistoryItem(manga, chapter, label) {
     <button class="button primary" type="button">${chapter ? "Continuar" : "Ver"}</button>
   `;
   item.querySelector("button").addEventListener("click", () => {
-    location.hash = chapter ? `read/${manga.id}/${chapter.id}` : `manga/${manga.id}`;
+    window.location.href = chapter
+      ? `${pageUrl("library")}#read/${manga.id}/${chapter.id}`
+      : `${pageUrl("library")}#manga/${manga.id}`;
   });
   return item;
 }
 
 function renderAdmin() {
+  if (!adminList) return;
   adminList.innerHTML = "";
   state.mangas.forEach((manga) => {
     const row = document.createElement("article");
@@ -1063,14 +1104,13 @@ function createApiResultCard(manga) {
     importButton.textContent = "Importado";
     importButton.className = "button secondary";
     importButton.disabled = true;
-    location.hash = `manga/${imported.id}`;
+    window.location.href = `${pageUrl("library")}#manga/${imported.id}`;
   });
   chapterButton.addEventListener("click", () => {
     const imported = findImportedManga(manga) || importManga(manga);
     importButton.textContent = "Importado";
     importButton.className = "button secondary";
     importButton.disabled = true;
-    location.hash = `manga/${imported.id}`;
     openChapterDialog(imported);
   });
 
@@ -1303,14 +1343,19 @@ function escapeHtml(value = "") {
 
 function applyTheme(theme) {
   document.documentElement.dataset.theme = theme;
-  document.querySelector("#themeIcon").textContent = theme === "dark" ? "Sol" : "Lua";
+  const themeIcon = document.querySelector("#themeIcon");
+  if (themeIcon) themeIcon.textContent = theme === "dark" ? "Sol" : "Lua";
   localStorage.setItem(THEME_KEY, theme);
 }
 
-searchInput.addEventListener("input", renderLibrary);
-statusFilter.addEventListener("change", renderLibrary);
-homeSearchInput.addEventListener("input", renderHomeCatalog);
-apiSearchForm.addEventListener("submit", runApiSearch);
+function on(element, eventName, handler) {
+  if (element) element.addEventListener(eventName, handler);
+}
+
+on(searchInput, "input", renderLibrary);
+on(statusFilter, "change", renderLibrary);
+on(homeSearchInput, "input", renderHomeCatalog);
+on(apiSearchForm, "submit", runApiSearch);
 document.querySelectorAll('a[href^="#"]').forEach((link) => {
   link.addEventListener("click", (event) => {
     const nextHash = link.getAttribute("href");
@@ -1325,46 +1370,46 @@ document.querySelectorAll('a[href^="#"]').forEach((link) => {
     location.hash = nextHash;
   });
 });
-authButton.addEventListener("click", () => {
+on(authButton, "click", () => {
   setAuthMode("login");
-  setView("auth");
+  window.location.href = pageUrl("login");
 });
-loginTab.addEventListener("click", () => setAuthMode("login"));
-registerTab.addEventListener("click", () => setAuthMode("register"));
-loginForm.addEventListener("submit", handleLogin);
-registerForm.addEventListener("submit", handleRegister);
-logoutButton.addEventListener("click", logout);
+on(loginTab, "click", () => setAuthMode("login"));
+on(registerTab, "click", () => setAuthMode("register"));
+on(loginForm, "submit", handleLogin);
+on(registerForm, "submit", handleRegister);
+on(logoutButton, "click", logout);
 
-document.querySelector("#backToLibrary").addEventListener("click", () => {
-  location.hash = "library";
+on(document.querySelector("#backToLibrary"), "click", () => {
+  window.location.href = pageUrl("library");
 });
 
-document.querySelector("#closeReader").addEventListener("click", () => {
+on(document.querySelector("#closeReader"), "click", () => {
   location.hash = currentMangaId ? `manga/${currentMangaId}` : "library";
 });
 
-document.querySelector("#chapterSelect").addEventListener("change", (event) => {
+on(document.querySelector("#chapterSelect"), "change", (event) => {
   location.hash = `read/${currentMangaId}/${event.target.value}`;
 });
 
-document.querySelector("#clearHistory").addEventListener("click", () => {
+on(document.querySelector("#clearHistory"), "click", () => {
   state.history = [];
   saveState();
   renderHistory();
 });
 
-document.querySelector("#resetData").addEventListener("click", () => {
+on(document.querySelector("#resetData"), "click", () => {
   state = structuredClone(sampleData);
   saveState();
   renderAdmin();
 });
 
-document.querySelector("#themeToggle").addEventListener("click", () => {
+on(document.querySelector("#themeToggle"), "click", () => {
   const nextTheme = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
   applyTheme(nextTheme);
 });
 
-mangaForm.addEventListener("submit", async (event) => {
+on(mangaForm, "submit", async (event) => {
   event.preventDefault();
   await addManga(new FormData(mangaForm));
   mangaForm.reset();
@@ -1372,7 +1417,7 @@ mangaForm.addEventListener("submit", async (event) => {
   renderHomeCatalog();
 });
 
-editForm.addEventListener("submit", async (event) => {
+on(editForm, "submit", async (event) => {
   event.preventDefault();
   await saveMangaCustomization(new FormData(editForm));
   editDialog.close();
@@ -1380,21 +1425,25 @@ editForm.addEventListener("submit", async (event) => {
   renderHomeCatalog();
 });
 
-document.querySelector("#closeEditDialog").addEventListener("click", () => {
+on(document.querySelector("#closeEditDialog"), "click", () => {
   editDialog.close();
 });
 
-document.querySelector("#closeChapterDialog").addEventListener("click", () => {
+on(document.querySelector("#closeChapterDialog"), "click", () => {
   chapterDialog.close();
 });
 
-chapterForm.addEventListener("submit", (event) => {
+on(chapterForm, "submit", (event) => {
   event.preventDefault();
   const added = addChapter(new FormData(chapterForm));
   chapterDialog.close();
   chapterForm.reset();
   if (added) {
-    renderDetails(added.manga.id);
+    if (detailsContent) {
+      renderDetails(added.manga.id);
+    } else {
+      window.location.href = `${pageUrl("library")}#manga/${added.manga.id}`;
+    }
     renderHomeCatalog();
   }
 });

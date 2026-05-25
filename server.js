@@ -309,7 +309,8 @@ http
     }
 
     const requestedPath = url.pathname === "/" ? "index.html" : url.pathname.slice(1);
-    const filePath = path.resolve(root, requestedPath);
+    const normalizedPath = requestedPath.endsWith("/") ? `${requestedPath}index.html` : requestedPath;
+    let filePath = path.resolve(root, normalizedPath);
 
     if (!filePath.startsWith(root)) {
       response.writeHead(403);
@@ -319,8 +320,25 @@ http
 
     fs.readFile(filePath, (error, data) => {
       if (error) {
-        response.writeHead(404);
-        response.end("Not found");
+        const indexPath = path.resolve(root, normalizedPath, "index.html");
+        if (!indexPath.startsWith(root)) {
+          response.writeHead(403);
+          response.end("Forbidden");
+          return;
+        }
+
+        fs.readFile(indexPath, (indexError, indexData) => {
+          if (indexError) {
+            response.writeHead(404);
+            response.end("Not found");
+            return;
+          }
+
+          response.writeHead(200, {
+            "Content-Type": "text/html; charset=utf-8"
+          });
+          response.end(indexData);
+        });
         return;
       }
 

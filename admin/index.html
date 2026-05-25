@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin - Manga Zenith</title>
+    <link rel="stylesheet" href="../styles.css" />
+  </head>
+  <body data-page="admin">
+    <header class="app-header">
+      <a class="brand" href="../home/" aria-label="Manga Zenith">
+        <span class="brand-mark">Z</span>
+        <span>Manga Zenith</span>
+      </a>
+      <nav class="top-nav" aria-label="Navegacao principal">
+        <a href="../home/" data-route="home">Inicio</a>
+        <a href="../library/" data-route="library">Minha lista</a>
+        <a href="../search/" data-route="search">Buscar</a>
+        <a href="../progress/" data-route="progress">Progresso</a>
+        <a href="../admin/" data-route="admin">Admin</a>
+      </nav>
+      <div class="user-menu" id="userMenu" hidden>
+        <span id="userName"></span>
+        <button class="button secondary" id="logoutButton" type="button">Sair</button>
+      </div>
+      <button class="button secondary" id="authButton" type="button">Entrar</button>
+      <button class="icon-button" id="themeToggle" type="button" aria-label="Alternar tema">
+        <span id="themeIcon">Lua</span>
+      </button>
+    </header>
+
+    <main>
+      <section class="view page-view" id="adminView">
+        <div class="page-heading">
+          <div>
+            <p class="eyebrow">MongoDB + cache local</p>
+            <h2>Gerenciar mangas</h2>
+          </div>
+          <button class="button secondary" id="resetData" type="button">Restaurar exemplo</button>
+        </div>
+
+        <form class="admin-form" id="mangaForm">
+          <label>
+            Titulo
+            <input name="title" required placeholder="Nome do manga" />
+          </label>
+          <label>
+            Autor
+            <input name="author" required placeholder="Autor ou scan" />
+          </label>
+          <label>
+            Generos
+            <input name="genres" required placeholder="Acao, Fantasia, Drama" />
+          </label>
+          <label>
+            Capa
+            <input name="cover" placeholder="URL da imagem ou envie abaixo" />
+          </label>
+          <label>
+            Foto da capa
+            <input name="coverFile" type="file" accept="image/*" />
+          </label>
+          <label>
+            Capitulos / episodios
+            <input name="chapterCount" type="number" min="0" step="1" placeholder="Ex: 120" />
+          </label>
+          <label>
+            Volumes
+            <input name="volumeCount" type="number" min="0" step="1" placeholder="Opcional" />
+          </label>
+          <label>
+            Sinopse
+            <textarea name="synopsis" required placeholder="Resumo curto"></textarea>
+          </label>
+          <label>
+            Capitulo inicial
+            <input name="chapterTitle" placeholder="Opcional, ex: Capitulo 1" />
+          </label>
+          <label>
+            Paginas do capitulo
+            <textarea name="pages" placeholder="Opcional: uma URL de imagem por linha"></textarea>
+          </label>
+          <button class="button primary" type="submit">Salvar manga</button>
+        </form>
+
+        <div class="admin-list" id="adminList"></div>
+      </section>
+
+      <dialog class="edit-dialog" id="editDialog">
+        <form class="edit-form" id="editForm" method="dialog">
+          <div class="dialog-heading">
+            <div>
+              <p class="eyebrow">Personalizar</p>
+              <h3>Editar manga</h3>
+            </div>
+            <button class="icon-button" id="closeEditDialog" type="button" aria-label="Fechar">X</button>
+          </div>
+          <input name="id" type="hidden" />
+          <label>
+            Titulo
+            <input name="title" required />
+          </label>
+          <label>
+            Autor
+            <input name="author" />
+          </label>
+          <label>
+            Generos
+            <input name="genres" placeholder="Acao, Fantasia, Romance" />
+          </label>
+          <label>
+            Capa
+            <input name="cover" />
+          </label>
+          <label>
+            Trocar foto da capa
+            <input name="coverFile" type="file" accept="image/*" />
+          </label>
+          <label>
+            Capitulos / episodios
+            <input name="chapterCount" type="number" min="0" step="1" placeholder="Ex: 120" />
+          </label>
+          <label>
+            Volumes
+            <input name="volumeCount" type="number" min="0" step="1" placeholder="Opcional" />
+          </label>
+          <label>
+            Sinopse
+            <textarea name="synopsis"></textarea>
+          </label>
+          <button class="button primary" type="submit">Salvar alteracoes</button>
+        </form>
+      </dialog>
+
+      <dialog class="edit-dialog" id="chapterDialog">
+        <form class="edit-form" id="chapterForm" method="dialog">
+          <div class="dialog-heading">
+            <div>
+              <p class="eyebrow">Capitulos</p>
+              <h3>Adicionar capitulo</h3>
+            </div>
+            <button class="icon-button" id="closeChapterDialog" type="button" aria-label="Fechar">X</button>
+          </div>
+          <input name="mangaId" type="hidden" />
+          <label>
+            Titulo do capitulo
+            <input name="chapterTitle" required placeholder="Capitulo 1" />
+          </label>
+          <label>
+            Paginas do capitulo
+            <textarea name="pages" placeholder="Opcional: uma URL de imagem por linha"></textarea>
+          </label>
+          <button class="button primary" type="submit">Adicionar capitulo</button>
+        </form>
+      </dialog>
+    </main>
+
+    <script src="../app.js"></script>
+  </body>
+</html>
