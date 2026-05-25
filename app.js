@@ -135,6 +135,7 @@ let currentGenre = "Todos";
 let currentMangaId = null;
 let cloudSaveTimer = null;
 let cloudStorageAvailable = false;
+let cloudBackendAvailable = true;
 let currentUser = null;
 let authReady = false;
 
@@ -177,6 +178,7 @@ const registerTab = document.querySelector("#registerTab");
 const loginForm = document.querySelector("#loginForm");
 const registerForm = document.querySelector("#registerForm");
 const authStatus = document.querySelector("#authStatus");
+const networkStatus = createNetworkStatus();
 
 function loadState() {
   const saved = localStorage.getItem(getStateStorageKey()) || localStorage.getItem(STORAGE_KEY) || localStorage.getItem("mangaZenith:data");
@@ -215,10 +217,12 @@ function saveRawState(value) {
 
 function saveState() {
   saveRawState(state);
-  if (currentUser) scheduleCloudSave();
+  if (canUseCloudSync()) scheduleCloudSave();
 }
 
 async function loadCloudState() {
+  if (!canUseCloudSync()) return false;
+
   try {
     const response = await fetch(CLOUD_STATE_URL, { cache: "no-store" });
     if (response.status === 401) {
@@ -230,6 +234,7 @@ async function loadCloudState() {
 
     const data = await response.json();
     cloudStorageAvailable = data.storage === "mongodb";
+    updateNetworkStatus();
 
     if (data.state) {
       state = normalizeLoadedState(data.state);
@@ -242,6 +247,7 @@ async function loadCloudState() {
     return false;
   } catch (error) {
     cloudStorageAvailable = false;
+    updateNetworkStatus();
     return false;
   }
 }
@@ -261,7 +267,7 @@ function scheduleCloudSave() {
 }
 
 async function saveCloudState() {
-  if (!currentUser) return;
+  if (!canUseCloudSync()) return;
 
   try {
     const response = await fetch(CLOUD_STATE_URL, {
@@ -273,6 +279,11 @@ async function saveCloudState() {
   } catch (error) {
     cloudStorageAvailable = false;
   }
+  updateNetworkStatus();
+}
+
+function canUseCloudSync() {
+  return Boolean(currentUser && cloudBackendAvailable && navigator.onLine);
 }
 
 function setView(route) {
@@ -300,13 +311,15 @@ function scrollToView(route, behavior = "smooth") {
 }
 
 function navigate() {
-  if (!authReady || !currentUser) {
-    if (CURRENT_PAGE !== "login" && authReady) {
-      window.location.href = pageUrl("login");
+  if (!authReady) {
+    return;
+  }
+
+  if (!currentUser) {
+    if (CURRENT_PAGE === "login") {
+      setView("auth");
       return;
     }
-    setView("auth");
-    return;
   }
 
   if (CURRENT_PAGE === "login") {
@@ -333,12 +346,14 @@ function navigate() {
 
   if (route === "home") renderHomeCatalog();
   if (route === "library") renderLibrary();
+  if (route === "discover") runVisibleSearchState();
   if (route === "history") renderHistory();
   if (route === "admin") renderAdmin();
 
   const currentRoute = PAGE_ROUTES[CURRENT_PAGE] || "home";
   if (currentRoute === "home") renderHomeCatalog();
   if (currentRoute === "library") renderLibrary();
+  if (currentRoute === "discover") runVisibleSearchState();
   if (currentRoute === "history") renderHistory();
   if (currentRoute === "admin") renderAdmin();
 
@@ -348,18 +363,58 @@ function navigate() {
 function renderAuthState() {
   const isLoggedIn = Boolean(currentUser);
   if (userMenu) userMenu.hidden = !isLoggedIn;
-  if (authButton) authButton.hidden = isLoggedIn || CURRENT_PAGE === "login";
+  if (authButton) authButton.hidden = isLoggedIn || CURRENT_PAGE === "login" || !cloudBackendAvailable;
   const topNav = document.querySelector(".top-nav");
-  if (topNav) topNav.hidden = !isLoggedIn;
+  if (topNav) topNav.hidden = false;
   if (currentUser && userName) userName.textContent = currentUser.username;
 
   if (!isLoggedIn && CURRENT_PAGE === "login") {
     setView("auth");
   }
+  updateNetworkStatus();
 }
 
 function pageUrl(page) {
   return CURRENT_PAGE ? `../${page}/` : `${page}/`;
+}
+
+function createNetworkStatus() {
+  const status = document.createElement("div");
+  status.className = "network-status";
+  status.setAttribute("role", "status");
+  status.setAttribute("aria-live", "polite");
+  status.innerHTML = '<span class="network-dot"></span><span class="network-text"></span>';
+  document.body.append(status);
+  return status;
+}
+
+function updateNetworkStatus() {
+  if (!networkStatus) return;
+
+  const text = networkStatus.querySelector(".network-text");
+  const isOnline = navigator.onLine;
+  const isSynced = Boolean(currentUser && cloudBackendAvailable && cloudStorageAvailable);
+  const isLocal = !cloudBackendAvailable || !currentUser || !cloudStorageAvailable;
+
+  networkStatus.classList.toggle("online", isOnline);
+  networkStatus.classList.toggle("offline", !isOnline);
+  networkStatus.classList.toggle("synced", isOnline && isSynced);
+  networkStatus.classList.toggle("local", isOnline && isLocal);
+
+  if (!isOnline) {
+    text.textContent = "Offline - dados locais";
+  } else if (isSynced) {
+    text.textContent = "Online - MongoDB sincronizado";
+  } else {
+    text.textContent = "Online - modo local";
+  }
+}
+
+function runVisibleSearchState() {
+  if (apiStatus && !apiStatus.textContent.trim()) {
+    apiStatus.textContent =
+      "MangaDex pode abrir capitulos quando houver paginas publicas. Jikan, AniList e Kitsu importam dados para sua lista.";
+  }
 }
 
 function setAuthMode(mode) {
@@ -390,8 +445,10 @@ async function requestJson(url, options = {}) {
 async function loadSession() {
   try {
     const data = await requestJson(AUTH_ME_URL, { method: "GET" });
+    cloudBackendAvailable = true;
     currentUser = data.user;
   } catch {
+    cloudBackendAvailable = false;
     currentUser = null;
   }
 
@@ -405,7 +462,10 @@ async function loadSession() {
       scheduleCloudSave();
       navigate();
     }
+  } else if (!cloudBackendAvailable) {
+    navigate();
   }
+  updateNetworkStatus();
 }
 
 async function handleLogin(event) {
@@ -421,6 +481,7 @@ async function handleLogin(event) {
         password: formData.get("password")
       })
     });
+    cloudBackendAvailable = true;
     currentUser = data.user;
     loginForm.reset();
     renderAuthState();
@@ -444,6 +505,7 @@ async function handleRegister(event) {
         password: formData.get("password")
       })
     });
+    cloudBackendAvailable = true;
     currentUser = data.user;
     registerForm.reset();
     renderAuthState();
@@ -459,6 +521,7 @@ async function logout() {
   currentUser = null;
   cloudStorageAvailable = false;
   renderAuthState();
+  updateNetworkStatus();
 }
 
 function getGenres() {
@@ -1407,6 +1470,30 @@ on(document.querySelector("#resetData"), "click", () => {
 on(document.querySelector("#themeToggle"), "click", () => {
   const nextTheme = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
   applyTheme(nextTheme);
+});
+
+window.addEventListener("online", async () => {
+  updateNetworkStatus();
+  if (currentUser) {
+    await loadCloudState();
+    renderVisibleLists();
+  }
+});
+
+window.addEventListener("offline", () => {
+  cloudStorageAvailable = false;
+  updateNetworkStatus();
+});
+
+window.addEventListener("storage", (event) => {
+  if (![getStateStorageKey(), STORAGE_KEY].includes(event.key) || !event.newValue) return;
+
+  try {
+    state = normalizeLoadedState(JSON.parse(event.newValue));
+    renderVisibleLists();
+  } catch {
+    // Ignore malformed storage updates from older tabs.
+  }
 });
 
 on(mangaForm, "submit", async (event) => {

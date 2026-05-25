@@ -232,6 +232,50 @@ a {
   margin: 0;
 }
 
+.network-status {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 80;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(320px, calc(100vw - 32px));
+  min-height: 38px;
+  padding: 0 12px;
+  color: var(--text);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 12px 30px rgba(27, 24, 18, 0.14);
+  backdrop-filter: blur(16px);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.network-dot {
+  width: 9px;
+  height: 9px;
+  flex: 0 0 auto;
+  background: var(--muted);
+  border-radius: 999px;
+}
+
+.network-status.synced .network-dot {
+  background: var(--teal);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--teal) 16%, transparent);
+}
+
+.network-status.local .network-dot {
+  background: var(--gold);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--gold) 18%, transparent);
+}
+
+.network-status.offline .network-dot {
+  background: var(--accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
 .hero-view {
   display: grid;
   grid-template-columns: minmax(280px, 0.9fr) minmax(320px, 1.1fr);
@@ -811,7 +855,7 @@ progress::-moz-progress-bar {
 
 @media (max-width: 760px) {
   body {
-    padding-bottom: calc(76px + env(safe-area-inset-bottom));
+    padding-bottom: calc(124px + env(safe-area-inset-bottom));
   }
 
   .app-header {
@@ -875,6 +919,14 @@ progress::-moz-progress-bar {
     min-height: calc(100svh - 76px);
     padding-bottom: 92px;
     scroll-margin-top: 86px;
+  }
+
+  .network-status {
+    right: 10px;
+    bottom: calc(78px + env(safe-area-inset-bottom));
+    left: 10px;
+    justify-content: center;
+    width: auto;
   }
 
   .hero-view {
