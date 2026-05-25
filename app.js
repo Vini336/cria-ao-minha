@@ -411,7 +411,6 @@ async function handleRegister(event) {
       method: "POST",
       body: JSON.stringify({
         username: formData.get("username"),
-        email: formData.get("email"),
         password: formData.get("password")
       })
     });

@@ -79,13 +79,13 @@ async function getCollections() {
     sessions: db.collection("sessions")
   };
   if (!indexesPromise) {
-    indexesPromise = Promise.all([
-      collections.users.createIndex({ email: 1 }, { unique: true }),
+    indexesPromise = collections.users.dropIndex("email_1").catch(() => null).then(() => Promise.all([
+      collections.users.createIndex({ email: 1 }, { unique: true, sparse: true }),
       collections.users.createIndex({ usernameKey: 1 }, { unique: true }),
       collections.sessions.createIndex({ token: 1 }, { unique: true }),
       collections.sessions.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
       collections.states.createIndex({ userId: 1 }, { unique: true })
-    ]);
+    ]));
   }
   await indexesPromise;
   return collections;
@@ -122,8 +122,7 @@ function clearSessionCookie(response) {
 function publicUser(user) {
   return {
     id: String(user._id),
-    username: user.username,
-    email: user.email
+    username: user.username
   };
 }
 
@@ -181,19 +180,16 @@ async function handleAuth(request, response, pathname) {
     if (pathname === "/api/auth/register" && request.method === "POST") {
       const body = await readJsonBody(request);
       const username = String(body.username || "").trim();
-      const email = String(body.email || "").trim().toLowerCase();
       const password = String(body.password || "");
 
-      if (username.length < 3 || !email.includes("@") || password.length < 6) {
-        sendJson(response, 400, { error: "Preencha usuario, email valido e senha com pelo menos 6 caracteres." });
+      if (username.length < 3 || password.length < 6) {
+        sendJson(response, 400, { error: "Preencha usuario e senha com pelo menos 6 caracteres." });
         return;
       }
 
-      const existing = await users.findOne({
-        $or: [{ email }, { usernameKey: username.toLowerCase() }]
-      });
+      const existing = await users.findOne({ usernameKey: username.toLowerCase() });
       if (existing) {
-        sendJson(response, 409, { error: "Usuario ou email ja cadastrado." });
+        sendJson(response, 409, { error: "Usuario ja cadastrado." });
         return;
       }
 
@@ -201,7 +197,6 @@ async function handleAuth(request, response, pathname) {
       const result = await users.insertOne({
         username,
         usernameKey: username.toLowerCase(),
-        email,
         passwordHash: hashPassword(password),
         createdAt: now,
         updatedAt: now
@@ -216,12 +211,10 @@ async function handleAuth(request, response, pathname) {
       const body = await readJsonBody(request);
       const login = String(body.login || "").trim().toLowerCase();
       const password = String(body.password || "");
-      const user = await users.findOne({
-        $or: [{ email: login }, { usernameKey: login }]
-      });
+      const user = await users.findOne({ usernameKey: login });
 
       if (!user || !verifyPassword(password, user.passwordHash)) {
-        sendJson(response, 401, { error: "Usuario, email ou senha invalidos." });
+        sendJson(response, 401, { error: "Usuario ou senha invalidos." });
         return;
       }
 
