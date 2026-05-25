@@ -132,8 +132,97 @@ a {
   border-radius: 8px;
 }
 
+.user-menu {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.user-menu span {
+  max-width: 150px;
+  overflow: hidden;
+  color: var(--muted);
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-menu .button {
+  min-height: 40px;
+  padding: 0 12px;
+}
+
 .view {
   min-height: calc(100vh - 96px);
+}
+
+.auth-view {
+  display: grid;
+  min-height: calc(100vh - 96px);
+  place-items: center;
+  padding: 28px 14px 56px;
+}
+
+.auth-panel {
+  display: grid;
+  gap: 18px;
+  width: min(520px, 100%);
+  padding: 22px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+
+.auth-panel h1 {
+  margin-bottom: 10px;
+  font-size: clamp(2.6rem, 10vw, 5rem);
+}
+
+.auth-panel p:not(.eyebrow) {
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.auth-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+  padding: 6px;
+  background: var(--surface-soft);
+  border-radius: 8px;
+}
+
+.auth-tabs button {
+  min-height: 42px;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 900;
+}
+
+.auth-tabs button.active {
+  color: var(--text);
+  background: var(--surface);
+}
+
+.auth-form {
+  display: grid;
+  gap: 12px;
+}
+
+.auth-form label {
+  display: grid;
+  gap: 7px;
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.auth-status {
+  min-height: 24px;
+  margin: 0;
 }
 
 .hero-view {
@@ -762,8 +851,21 @@ progress::-moz-progress-bar {
     line-height: 1.1;
   }
 
+  .user-menu {
+    margin-left: auto;
+  }
+
+  .user-menu span {
+    display: none;
+  }
+
   .view {
     min-height: calc(100svh - 76px);
+  }
+
+  .auth-view {
+    min-height: calc(100svh - 76px);
+    padding-bottom: 92px;
   }
 
   .hero-view {

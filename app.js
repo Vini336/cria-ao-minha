@@ -1,5 +1,10 @@
 const STORAGE_KEY = "mangaZenith:data:v2";
 const THEME_KEY = "mangaZenith:theme";
+const CLOUD_STATE_URL = "/api/state";
+const AUTH_ME_URL = "/api/auth/me";
+const LOGIN_URL = "/api/auth/login";
+const REGISTER_URL = "/api/auth/register";
+const LOGOUT_URL = "/api/auth/logout";
 const PLACEHOLDER_COVER =
   "https://images.unsplash.com/photo-1612036782180-6f0b6cd846fe?auto=format&fit=crop&w=900&q=80";
 const STATUS_OPTIONS = {
@@ -119,8 +124,13 @@ const apiProviders = {
 let state = loadState();
 let currentGenre = "Todos";
 let currentMangaId = null;
+let cloudSaveTimer = null;
+let cloudStorageAvailable = false;
+let currentUser = null;
+let authReady = false;
 
 const views = {
+  auth: document.querySelector("#authView"),
   home: document.querySelector("#homeView"),
   library: document.querySelector("#libraryView"),
   discover: document.querySelector("#discoverView"),
@@ -149,9 +159,17 @@ const apiSearchInput = document.querySelector("#apiSearchInput");
 const apiProvider = document.querySelector("#apiProvider");
 const apiResults = document.querySelector("#apiResults");
 const apiStatus = document.querySelector("#apiStatus");
+const userMenu = document.querySelector("#userMenu");
+const userName = document.querySelector("#userName");
+const logoutButton = document.querySelector("#logoutButton");
+const loginTab = document.querySelector("#loginTab");
+const registerTab = document.querySelector("#registerTab");
+const loginForm = document.querySelector("#loginForm");
+const registerForm = document.querySelector("#registerForm");
+const authStatus = document.querySelector("#authStatus");
 
 function loadState() {
-  const saved = localStorage.getItem(STORAGE_KEY) || localStorage.getItem("mangaZenith:data");
+  const saved = localStorage.getItem(getStateStorageKey()) || localStorage.getItem(STORAGE_KEY) || localStorage.getItem("mangaZenith:data");
   if (!saved) {
     saveRawState(sampleData);
     return structuredClone(sampleData);
@@ -170,6 +188,10 @@ function loadState() {
   }
 }
 
+function getStateStorageKey() {
+  return currentUser ? `${STORAGE_KEY}:${currentUser.id}` : STORAGE_KEY;
+}
+
 function normalizeMangaProgress(manga) {
   manga.status = STATUS_OPTIONS[manga.status] ? manga.status : "reading";
   manga.progressChapter = clampProgress(Number(manga.progressChapter || 0), manga);
@@ -178,11 +200,69 @@ function normalizeMangaProgress(manga) {
 }
 
 function saveRawState(value) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
+  localStorage.setItem(getStateStorageKey(), JSON.stringify(value));
 }
 
 function saveState() {
   saveRawState(state);
+  if (currentUser) scheduleCloudSave();
+}
+
+async function loadCloudState() {
+  try {
+    const response = await fetch(CLOUD_STATE_URL, { cache: "no-store" });
+    if (response.status === 401) {
+      currentUser = null;
+      renderAuthState();
+      return false;
+    }
+    if (!response.ok) return false;
+
+    const data = await response.json();
+    cloudStorageAvailable = data.storage === "mongodb";
+
+    if (data.state) {
+      state = normalizeLoadedState(data.state);
+      saveRawState(state);
+      return true;
+    }
+
+    state = loadState();
+    await saveCloudState();
+    return false;
+  } catch (error) {
+    cloudStorageAvailable = false;
+    return false;
+  }
+}
+
+function normalizeLoadedState(value) {
+  const loaded = value && typeof value === "object" ? value : {};
+  loaded.mangas = loaded.mangas || [];
+  loaded.favorites = loaded.favorites || [];
+  loaded.history = loaded.history || [];
+  loaded.mangas.forEach(normalizeMangaProgress);
+  return loaded;
+}
+
+function scheduleCloudSave() {
+  clearTimeout(cloudSaveTimer);
+  cloudSaveTimer = setTimeout(saveCloudState, 500);
+}
+
+async function saveCloudState() {
+  if (!currentUser) return;
+
+  try {
+    const response = await fetch(CLOUD_STATE_URL, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ state })
+    });
+    cloudStorageAvailable = response.ok;
+  } catch (error) {
+    cloudStorageAvailable = false;
+  }
 }
 
 function setView(route) {
@@ -196,6 +276,11 @@ function setView(route) {
 }
 
 function navigate() {
+  if (!authReady || !currentUser) {
+    setView("auth");
+    return;
+  }
+
   const hash = location.hash.replace("#", "") || "home";
   const [route, id, chapterId] = hash.split("/");
 
@@ -219,6 +304,116 @@ function navigate() {
   if (route === "admin") renderAdmin();
 
   setView(views[route] ? route : "home");
+}
+
+function renderAuthState() {
+  const isLoggedIn = Boolean(currentUser);
+  userMenu.hidden = !isLoggedIn;
+  document.querySelector(".top-nav").hidden = !isLoggedIn;
+  if (currentUser) userName.textContent = currentUser.username;
+
+  if (!isLoggedIn) {
+    setView("auth");
+  }
+}
+
+function setAuthMode(mode) {
+  const isRegister = mode === "register";
+  loginForm.hidden = isRegister;
+  registerForm.hidden = !isRegister;
+  loginTab.classList.toggle("active", !isRegister);
+  registerTab.classList.toggle("active", isRegister);
+  authStatus.textContent = "";
+}
+
+async function requestJson(url, options = {}) {
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...(options.headers || {})
+    }
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.error || `HTTP ${response.status}`);
+  }
+  return data;
+}
+
+async function loadSession() {
+  try {
+    const data = await requestJson(AUTH_ME_URL, { method: "GET" });
+    currentUser = data.user;
+  } catch {
+    currentUser = null;
+  }
+
+  authReady = true;
+  renderAuthState();
+  if (currentUser) {
+    const loadedFromCloud = await loadCloudState();
+    if (loadedFromCloud || cloudStorageAvailable) {
+      navigate();
+    } else {
+      scheduleCloudSave();
+      navigate();
+    }
+  }
+}
+
+async function handleLogin(event) {
+  event.preventDefault();
+  authStatus.textContent = "Entrando...";
+  const formData = new FormData(loginForm);
+
+  try {
+    const data = await requestJson(LOGIN_URL, {
+      method: "POST",
+      body: JSON.stringify({
+        login: formData.get("login"),
+        password: formData.get("password")
+      })
+    });
+    currentUser = data.user;
+    loginForm.reset();
+    renderAuthState();
+    await loadCloudState();
+    navigate();
+  } catch (error) {
+    authStatus.textContent = error.message;
+  }
+}
+
+async function handleRegister(event) {
+  event.preventDefault();
+  authStatus.textContent = "Criando conta...";
+  const formData = new FormData(registerForm);
+
+  try {
+    const data = await requestJson(REGISTER_URL, {
+      method: "POST",
+      body: JSON.stringify({
+        username: formData.get("username"),
+        email: formData.get("email"),
+        password: formData.get("password")
+      })
+    });
+    currentUser = data.user;
+    registerForm.reset();
+    renderAuthState();
+    await saveCloudState();
+    navigate();
+  } catch (error) {
+    authStatus.textContent = error.message;
+  }
+}
+
+async function logout() {
+  await fetch(LOGOUT_URL, { method: "POST" }).catch(() => {});
+  currentUser = null;
+  cloudStorageAvailable = false;
+  renderAuthState();
 }
 
 function getGenres() {
@@ -1101,6 +1296,11 @@ searchInput.addEventListener("input", renderLibrary);
 statusFilter.addEventListener("change", renderLibrary);
 homeSearchInput.addEventListener("input", renderHomeCatalog);
 apiSearchForm.addEventListener("submit", runApiSearch);
+loginTab.addEventListener("click", () => setAuthMode("login"));
+registerTab.addEventListener("click", () => setAuthMode("register"));
+loginForm.addEventListener("submit", handleLogin);
+registerForm.addEventListener("submit", handleRegister);
+logoutButton.addEventListener("click", logout);
 
 document.querySelector("#backToLibrary").addEventListener("click", () => {
   location.hash = "library";
@@ -1168,4 +1368,12 @@ chapterForm.addEventListener("submit", (event) => {
 
 window.addEventListener("hashchange", navigate);
 applyTheme(localStorage.getItem(THEME_KEY) || "light");
-navigate();
+
+async function initializeApp() {
+  setAuthMode("login");
+  renderAuthState();
+  await loadSession();
+  navigate();
+}
+
+initializeApp();

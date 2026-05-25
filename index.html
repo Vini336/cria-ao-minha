@@ -22,12 +22,62 @@
         <a href="#admin" data-route="admin">Admin</a>
       </nav>
 
+      <div class="user-menu" id="userMenu" hidden>
+        <span id="userName"></span>
+        <button class="button secondary" id="logoutButton" type="button">Sair</button>
+      </div>
+
       <button class="icon-button" id="themeToggle" type="button" aria-label="Alternar tema">
         <span id="themeIcon">Lua</span>
       </button>
     </header>
 
     <main>
+      <section class="auth-view" id="authView" hidden>
+        <div class="auth-panel">
+          <div>
+            <p class="eyebrow">Conta sincronizada</p>
+            <h1>Manga Zenith</h1>
+            <p>Entre para manter sua lista, favoritos e progresso sincronizados entre computador e celular.</p>
+          </div>
+
+          <div class="auth-tabs" role="tablist" aria-label="Acesso">
+            <button class="active" id="loginTab" type="button">Login</button>
+            <button id="registerTab" type="button">Registro</button>
+          </div>
+
+          <form class="auth-form" id="loginForm">
+            <label>
+              Usuario ou email
+              <input name="login" autocomplete="username" required />
+            </label>
+            <label>
+              Senha
+              <input name="password" type="password" autocomplete="current-password" required />
+            </label>
+            <button class="button primary" type="submit">Entrar</button>
+          </form>
+
+          <form class="auth-form" id="registerForm" hidden>
+            <label>
+              Usuario
+              <input name="username" autocomplete="username" required minlength="3" />
+            </label>
+            <label>
+              Email
+              <input name="email" type="email" autocomplete="email" required />
+            </label>
+            <label>
+              Senha
+              <input name="password" type="password" autocomplete="new-password" required minlength="6" />
+            </label>
+            <button class="button primary" type="submit">Criar conta</button>
+          </form>
+
+          <p class="auth-status" id="authStatus"></p>
+        </div>
+      </section>
+
       <section class="view hero-view" id="homeView">
         <div class="hero-copy">
           <p class="eyebrow">Lista pessoal de mangas</p>
